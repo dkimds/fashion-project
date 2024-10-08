@@ -1,0 +1,88 @@
+# Requires docker compose >= v1.28.0
+# Define shell env var DATA_DIR as absolute path for data and model files
+# Then, run with shell command: docker-compose up -d
+
+# Author: Donghun Lee @ AIML-K
+# For deployment purposes to be used in Stylebot
+
+
+version: "3"
+services:
+  wild_seg:
+    container_name: stylebot_wild_seg
+    image: aimlk/stylebot_wild_seg:v1.0.1-cuda111 
+    entrypoint: sh /stylebot_seg/server.sh
+    ports:
+      - 50100:50100
+      - 8181:5000
+    ipc: host
+    volumes:
+      - ${DATA_DIR}/stylebot_wild_seg/pretrained:/stylebot_seg/pretrained
+      - type: bind
+        source: ../docker-workspace/
+        target: /stylebot_wild_seg/gd_datasets/
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+  wild_kps:
+    container_name: stylebot_wild_kps
+    image: aimlk/stylebot_wild_kps:v1.0.3
+    entrypoint: sh /stylebot_kp/server.sh
+    ports:
+      - 50200:50200
+    ipc: host
+    volumes:
+      - ${DATA_DIR}/stylebot_wild_kps/pretrained:/stylebot_kp/pretrained
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+  subretrieval:
+    container_name: stylebot_subretrieval
+    image: aimlk/stylebot_subretrieval:v1.0.12
+    entrypoint: sh /app/server.sh
+    environment:
+      - REBUILD_SUBRETRIEVAL_DB=True  # when True, rebuilds internal db every time the container is run
+    ports:
+      - 50300:50300
+    ipc: host
+    volumes:
+      - ${DATA_DIR}/tmp/subretrieval:/app/stylebot_db
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+  wild_retrieval:
+    container_name: stylebot_wild_retrieval
+    image: aimlk/stylebot_wild_retrieval:v1.0.3
+    entrypoint: sh /stylebot_ret/server.sh
+    environment:
+      - SEGMENTATION_REMOTE=wild_seg:50100
+      - KPS_WARP_REMOTE=wild_kps:50200
+      - RETRIEVAL_REMOTE=subretrieval:50300
+      - PLOT_DEBUG=FALSE
+    ports:
+      - 50000:50000
+    volumes:
+      - ${DATA_DIR}:/stylebot_ret/tmp
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
