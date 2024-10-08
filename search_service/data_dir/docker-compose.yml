@@ -1,0 +1,13 @@
+# to unload data to the current folder, do:
+# docker-compose up
+
+# note: unloaded folder has root:root ownership. To fix this, do:
+# sudo chown $(id -u):$(id -g) -R .
+
+version: "3"
+services:
+    data_unloader:
+        container_name: stylebot_mindslab_data_unloader
+        image: aimlk/stylebot_mindslab_data_unloader:0.0.4
+        volumes:
+            - .:/data_out
